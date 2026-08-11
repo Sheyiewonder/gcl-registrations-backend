@@ -17,7 +17,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
-        "https://gcl-registrations-frontend-kappa.vercel.app/",
+        "https://gcl-registrations-frontend-kappa.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
