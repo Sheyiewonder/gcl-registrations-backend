@@ -130,6 +130,14 @@ async def login(
         .first()
     )
 
+    print("=== OTP DEBUG ===")
+    print("NOW:", now)
+    print("LATEST OTP:", latest_otp)
+    print(
+        "LATEST OTP CREATED:",
+        latest_otp.created_at if latest_otp else None,
+    )
+
     if latest_otp:
         seconds_since_last_request = (
             now - latest_otp.created_at
