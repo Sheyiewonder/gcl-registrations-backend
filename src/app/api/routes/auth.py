@@ -122,7 +122,10 @@ async def login(
 
     latest_otp = (
         db.query(AdminOTP)
-        .filter(AdminOTP.admin_id == admin.id)
+        .filter(
+            AdminOTP.admin_id == admin.id,
+            AdminOTP.used_at.is_(None),
+        )
         .order_by(AdminOTP.created_at.desc())
         .first()
     )

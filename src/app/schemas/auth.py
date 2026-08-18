@@ -25,7 +25,6 @@ class AdminResponse(BaseModel):
     email: EmailStr
     role: str
     is_active: bool
-    status: str
 
     class Config:
         from_attributes = True

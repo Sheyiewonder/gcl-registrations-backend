@@ -38,13 +38,17 @@ def get_admin_status(
     Determine the current status of an admin.
 
     Pending:
-        The admin has an unused invitation.
+        The admin has an unused, non-expired invitation.
 
     Active:
-        The invitation has been completed and the account is active.
+        The admin has completed password setup and is active.
 
     Inactive:
-        The invitation has been completed and the account is inactive.
+        The admin has completed password setup and is inactive.
+
+    Expired invitations:
+        An unused invitation whose expiry time has passed does not
+        keep the admin in pending status.
     """
 
     invitation = (
@@ -57,7 +61,7 @@ def get_admin_status(
         .first()
     )
 
-    if invitation:
+    if invitation and invitation.expires_at > datetime.utcnow():
         return "pending"
 
     if admin.is_active:
@@ -101,9 +105,72 @@ async def create_admin(
     )
 
     if existing_admin:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="An admin with this email already exists",
+        # Look for the most recent unused invitation.
+        existing_invitation = (
+            db.query(AdminInvitation)
+            .filter(
+                AdminInvitation.admin_id == existing_admin.id,
+                AdminInvitation.used_at.is_(None),
+            )
+            .order_by(AdminInvitation.created_at.desc())
+            .first()
+        )
+
+        # ---------------------------------------------------------
+        # Existing admin with a valid pending invitation
+        # ---------------------------------------------------------
+
+        if (
+            existing_invitation
+            and existing_invitation.expires_at > datetime.utcnow()
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "An invitation has already been sent to "
+                    "this email address and has not expired yet."
+                ),
+            )
+
+        # ---------------------------------------------------------
+        # Existing admin whose invitation has expired
+        # ---------------------------------------------------------
+
+        if existing_invitation:
+            existing_invitation.used_at = datetime.utcnow()
+
+        # Generate a fresh invitation.
+        invitation_token = generate_invitation_token()
+
+        new_invitation = AdminInvitation(
+            admin_id=existing_admin.id,
+            token_hash=hash_invitation_token(
+                invitation_token
+            ),
+            expires_at=(
+                datetime.utcnow()
+                + timedelta(hours=INVITATION_EXPIRY_HOURS)
+            ),
+        )
+
+        db.add(new_invitation)
+
+        # Make sure the account remains inactive until
+        # password setup is completed.
+        existing_admin.is_active = False
+
+        db.commit()
+        db.refresh(existing_admin)
+
+        await send_admin_invitation_email(
+            email=existing_admin.email,
+            invitation_token=invitation_token,
+            expires_hours=INVITATION_EXPIRY_HOURS,
+        )
+
+        return build_admin_response(
+            existing_admin,
+            db,
         )
 
     if data.role not in {"admin", "super_admin"}:
@@ -235,7 +302,10 @@ def update_admin_status(
         .first()
     )
 
-    if invitation:
+    if (
+        invitation
+        and invitation.expires_at > datetime.utcnow()
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
