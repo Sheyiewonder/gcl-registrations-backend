@@ -120,7 +120,7 @@ async def login(
     # Check resend cooldown
     # ---------------------------------------------------------
 
-    latest_otp = (
+   latest_otp = (
         db.query(AdminOTP)
         .filter(
             AdminOTP.admin_id == admin.id,
@@ -129,16 +129,6 @@ async def login(
         .order_by(AdminOTP.created_at.desc())
         .first()
     )
-
-    print("=== OTP DEBUG ===")
-    print("NOW:", now)
-    print("LATEST OTP:", latest_otp)
-    print(
-        "LATEST OTP CREATED:",
-        latest_otp.created_at if latest_otp else None,
-    )
-    print("SERVER UTC NOW:", datetime.utcnow())
-    print("SERVER LOCAL NOW:", datetime.now())
 
     if latest_otp:
         seconds_since_last_request = (
@@ -158,7 +148,6 @@ async def login(
                     "before requesting another OTP."
                 ),
             )
-
     # ---------------------------------------------------------
     # Invalidate previous unused OTPs
     # ---------------------------------------------------------
