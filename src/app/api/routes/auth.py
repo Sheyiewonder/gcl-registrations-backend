@@ -137,6 +137,8 @@ async def login(
         "LATEST OTP CREATED:",
         latest_otp.created_at if latest_otp else None,
     )
+    print("SERVER UTC NOW:", datetime.utcnow())
+    print("SERVER LOCAL NOW:", datetime.now())
 
     if latest_otp:
         seconds_since_last_request = (
