@@ -118,9 +118,9 @@ async def login(
 
     # ---------------------------------------------------------
     # Check resend cooldown
-    # ---------------------------------------------------------
+    # ---------------------------------------------------------------------------------------------------------------
 
-   latest_otp = (
+    latest_otp = (
         db.query(AdminOTP)
         .filter(
             AdminOTP.admin_id == admin.id,
@@ -130,38 +130,24 @@ async def login(
         .first()
     )
 
-      # ---------------------------------------------------------
-    # Check resend cooldown
-    # ---------------------------------------------------------
+    if latest_otp:
+        seconds_since_last_request = (
+            now - latest_otp.created_at
+        ).total_seconds()
 
-    latest_otp = (
-            db.query(AdminOTP)
-            .filter(
-                AdminOTP.admin_id == admin.id,
-                AdminOTP.used_at.is_(None),
+        if seconds_since_last_request < OTP_RESEND_COOLDOWN_SECONDS:
+            remaining = int(
+                OTP_RESEND_COOLDOWN_SECONDS
+                - seconds_since_last_request
             )
-            .order_by(AdminOTP.created_at.desc())
-            .first()
-        )
 
-        if latest_otp:
-            seconds_since_last_request = (
-                now - latest_otp.created_at
-            ).total_seconds()
-
-            if seconds_since_last_request < OTP_RESEND_COOLDOWN_SECONDS:
-                remaining = int(
-                    OTP_RESEND_COOLDOWN_SECONDS
-                    - seconds_since_last_request
-                )
-
-                raise HTTPException(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=(
-                        f"Please wait {remaining} seconds "
-                        "before requesting another OTP."
-                    ),
-                )
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    f"Please wait {remaining} seconds "
+                    "before requesting another OTP."
+                ),
+            )
     # ---------------------------------------------------------
     # Invalidate previous unused OTPs
     # ---------------------------------------------------------
